@@ -1,0 +1,11 @@
+[project]
+name = "dbproj"
+version = "0.1.0"
+description = "A simple web GUI for interacting with a pg database"
+requires-python = ">=3.12"
+dependencies = [
+    "nicegui",
+    # "psycopg",
+    "psycopg[binary]",
+    "python-dotenv",
+]
