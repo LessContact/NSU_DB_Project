@@ -1,9 +1,10 @@
 from nicegui import ui
 from auth import User
 
+
 def build_login(on_login) -> any:
     with ui.element('div').classes('w-full absolute-center') as login_page:
-         with ui.card(align_items='center').classes('items-center w-1/3 flex-col p-4 gap-4'):
+        with ui.card(align_items='center').classes('items-center w-1/3 flex-col p-4 gap-4'):
             ui.label('Система управления базой данных').classes('text-h4 text-center')
             ui.label('Выберите роль для входа.').classes('text-h6 text-center')
 

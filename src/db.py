@@ -49,4 +49,5 @@ class DBManager:
             ui.notify(f"DB error: {e}", color='negative')
             return [], []
 
+
 db_manager = DBManager()
