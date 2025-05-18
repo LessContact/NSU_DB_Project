@@ -7,7 +7,6 @@ from nicegui import ui
 load_dotenv()
 
 DSN = os.getenv('DATABASE_URL')
-ROLE = None
 result_areas = {}
 
 
@@ -78,61 +77,69 @@ def show_dashboard():
     dashboard_page.visible = True
 
 
-def login(as_role: str):
-    """Входит в систему с указанной ролью"""
-    global ROLE
-    ROLE = as_role
-    ui.notify(f'Вы вошли как {as_role}', color='positive')
-    show_dashboard()
+class User:
+    role: str
+    def __init__(self, role: str):
+        self.role = role
 
+    def __str__(self):
+        return self.role
 
-# Главный UI
-with ui.column().classes('w-full') as login_page:
-    with ui.card().classes('w-1/3 absolute-center'):
+    def get_role(self):
+        return self.role
+
+    def change_role(self, as_role: str):
+        """Входит в систему с указанной ролью"""
+        self.role = as_role
+        ui.notify(f'Вы вошли как {self.role}', color='positive')
+        show_dashboard()
+
+user = User('')
+
+with ui.element('div').classes('w-full absolute-center') as login_page:
+    with ui.card(align_items='center').classes('items-center w-1/3 flex-col p-4 gap-4'):
         ui.label('Система управления базой данных').classes('text-h4 text-center')
-        ui.label('Выберите роль для входа:').classes('text-h6 mt-4')
+        ui.label('Выберите роль для входа.').classes('text-h6 text-center')
 
-        with ui.row().classes('justify-center gap-4 mt-4'):
-            ui.button('Администратор', on_click=lambda: login('admin')).classes('bg-primary')
-            ui.button('Пользователь', on_click=lambda: login('user')).classes('bg-secondary')
+        with ui.row().classes('flex justify-center items-center gap-4 w-full'):
+            ui.button('Администратор', on_click=lambda: user.change_role('admin')).classes('bg-primary')
+            ui.button('Пользователь', on_click=lambda: user.change_role('user')).classes('bg-secondary')
 
-with ui.column().classes('w-full').bind_visibility_from(lambda: ROLE is not None) as dashboard_page:
-    with ui.row().classes('justify-between w-full'):
-        ui.label(f'Вы вошли как: {ROLE}').classes('text-h6')
-        ui.button('Выйти', on_click=show_login).classes('bg-red')
+with ui.column().classes('full-width').bind_visibility_from(lambda: user.get_role() != '') as dashboard_page:
+    with ui.row().classes('full-width items-center q-pa-md'):
+        ui.label(f'Вы вошли как: {user.get_role()}').classes('text-h6')
 
-    # Создаем вкладки
-    with ui.tabs().classes('w-full') as tabs:
-        entities = ['customers', 'orders', 'products', 'suppliers']
-        tabs_dict = {entity: ui.tab(entity.capitalize()) for entity in entities}
+        ui.space().classes('grow')
 
-    with ui.tab_panels(tabs, value=entities[0]).classes('w-full') as panels:
+        ui.button('Выйти', on_click=show_login).classes('q-btn-negative')
+
+    with ui.row().classes('full-width justify-center q-mb-md'):
+        with ui.tabs().classes('') as tabs:
+            entities = ['customers', 'orders', 'products', 'suppliers']
+            tabs_dict = {entity: ui.tab(entity.capitalize()).classes('q-mx-xs') for entity in entities}
+
+    with ui.tab_panels(tabs, value=entities[0]).classes('full-width') as panels:
         for entity in entities:
             with ui.tab_panel(tabs_dict[entity]):
-                with ui.row().classes('w-full gap-2'):
-                    ui.button('Показать все', on_click=lambda e=entity: show_all(e)).classes('bg-blue')
+                with ui.row().classes('full-width q-gutter-sm'):
+                    ui.button('Показать все', on_click=lambda e=entity: show_all(e)).classes('q-btn-primary')
+                    admin_button = ui.button('Счет строк', on_click=lambda e=entity: count_rows(e)).classes('q-btn-positive')
+                    admin_button.bind_visibility_from(lambda: user.get_role() == 'admin')
 
-                    # Кнопка только для админа
-                    admin_button = ui.button('Счет строк', on_click=lambda e=entity: count_rows(e)).classes('bg-green')
-                    admin_button.bind_visibility_from(lambda: ROLE == 'admin')
-
-                # Карточка для админа
-                admin_card = ui.card().classes('w-full')
-                admin_card.bind_visibility_from(lambda: ROLE == 'admin')
+                admin_card = ui.card().classes('full-width')
+                admin_card.bind_visibility_from(lambda: user.get_role() == 'admin')
 
                 with admin_card:
-                    ui.label('Выполнить произвольный запрос:').classes('text-bold')
-                    query_input = ui.textarea(placeholder=f'SELECT * FROM {entity} WHERE...').classes('w-full')
-                    ui.button('Выполнить', on_click=lambda e=entity, q=query_input: custom_query(e, q)).classes(
-                        'bg-purple')
+                    ui.label('Выполнить произвольный запрос:').classes('text-weight-bold')
+                    query_input = ui.textarea(placeholder=f'SELECT * FROM {entity} WHERE...').classes('full-width')
+                    ui.button('Выполнить', on_click=lambda e=entity, q=query_input: custom_query(e, q)).classes('q-btn-purple')
 
                 ui.separator()
-                # Создаем таблицу для результатов
-                result_areas[entity] = ui.table(columns=[], rows=[]).classes('w-full')
+                result_areas[entity] = ui.table(columns=[], rows=[]).classes('full-width')
 
 # Инициализация
 dashboard_page.visible = False
 
 # Запускаем приложение
 if __name__ in {'__main__', '__mp_main__'}:
-    ui.run(title='Система управления базой данных', storage_secret='db_manager_secret')
+    ui.run(host='localhost', title='Система управления базой данных', favicon='💽', dark=None, uvicorn_logging_level='warning')
