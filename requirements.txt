@@ -1,0 +1,3 @@
+nicegui
+psycopg[binary]
+python-dotenv

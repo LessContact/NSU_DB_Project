@@ -10,5 +10,5 @@ def build_login(on_login) -> any:
 
             with ui.row().classes('flex justify-center items-center gap-4 w-full'):
                 ui.button('Администратор', on_click=lambda: on_login('admin')).classes('bg-primary')
-                ui.button('Пользователь', on_click=lambda: on_login('user')).classes('bg-secondary')
+                ui.button('Отдел кадров', on_click=lambda: on_login('hr')).classes('bg-secondary')
     return login_page

@@ -1,5 +1,5 @@
 from nicegui import ui
-
+from db import db_manager
 
 class User:
     role: str
@@ -12,10 +12,10 @@ class User:
 
     def change_role(self, new_role: str):
         self.role = new_role
+        db_manager.connect(new_role)
         ui.notify(f"Role changed to {new_role}")
-        # db_manager.connect(new_role)
 
     def logout(self):
         self.role = ''
         ui.notify(f"Logged out")
-        # db_manager.disconnect()
+        db_manager.disconnect()

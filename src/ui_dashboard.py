@@ -6,7 +6,7 @@ def build_dashboard(user, on_logout):
     entities = ['customers', 'orders', 'products', 'suppliers']
     result_areas = {}
 
-    with ui.column().classes('full-width').bind_visibility_from(lambda: user.get_role() != '') as dashboard_page:
+    with ui.column().classes('full-width') as dashboard_page:
         with ui.row().classes('full-width items-center q-pa-md'):
             ui.label('').classes('text-h6').bind_text_from(user, 'role', lambda x: 'Вы вошли как ' + x)
             ui.space().classes('grow')
