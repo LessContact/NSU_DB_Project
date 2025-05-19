@@ -10,10 +10,11 @@ class User:
     def get_role(self) -> str:
         return self.role
 
-    def change_role(self, new_role: str):
-        self.role = new_role
-        db_manager.connect(new_role)
-        ui.notify(f"Role changed to {new_role}")
+    def change_role(self, new_role: str) -> bool:
+        success = db_manager.connect(new_role)
+        if success:
+            self.role = new_role
+        return success
 
     def logout(self):
         self.role = ''

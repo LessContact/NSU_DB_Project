@@ -13,11 +13,11 @@ def build_dashboard(user, on_logout):
             ui.button('Выйти', on_click=on_logout).classes('q-btn-negative')
 
         labels = [ent.capitalize() for ent in entities]
-        with ui.tabs() as tabs:
+        with ui.tabs().classes('full-width center') as tabs:
             for lbl in labels:
                 ui.tab(lbl)
 
-        with ui.tab_panels(tabs, value=labels[0]).classes('full-width') as panels:
+        with ui.tab_panels(tabs, value=labels[0]).classes('full-width center') as panels:
             for lbl in labels:
                 with ui.tab_panel(lbl):
                     with ui.row().classes('full-width q-gutter-sm'):

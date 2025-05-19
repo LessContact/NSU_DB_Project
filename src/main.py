@@ -11,8 +11,12 @@ def on_logout():
 
 
 def on_login(role : str):
-    user.change_role(role)
-    show_dashboard()
+    if user.change_role(role):
+        show_dashboard()
+        ui.notify(f'Logged in as {role}', color='positive')
+    else:
+        ui.notify('Could not login; check database credentials/connection', color='negative')
+        show_login()
 
 def show_login():
     login_page.visible = True
@@ -31,4 +35,4 @@ dashboard_page.visible = False
 
 if __name__ in {'__main__', '__mp_main__'}:
     ui.run(host='localhost', title='Система управления базой данных', favicon='💽', dark=None,
-           reload=False, uvicorn_logging_level='warning')
+           reload=False, reconnect_timeout=10.0, uvicorn_logging_level='warning')
