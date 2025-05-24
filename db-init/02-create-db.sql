@@ -9,3 +9,9 @@ CREATE DATABASE aerospace_factory
     IS_TEMPLATE = False;
 
 ALTER DATABASE aerospace_factory SET default_text_search_config = 'russian';
+
+\connect aerospace_factory
+
+ALTER DEFAULT PRIVILEGES FOR ROLE admin_user
+    IN SCHEMA public
+    GRANT USAGE ON SEQUENCES TO HR, Testers, Workshop_manager;

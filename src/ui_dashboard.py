@@ -3,7 +3,7 @@ from db import db_manager
 
 
 def build_dashboard(user, on_logout):
-    entities = ['customers', 'orders', 'products', 'suppliers']
+    entities = ['Products', 'Employees', 'Assembly', 'Workshops']
     result_areas = {}
 
     with ui.column().classes('full-width') as dashboard_page:
@@ -49,17 +49,17 @@ def display_result(entity, cols, data, areas):
     cols_def = [{'name': c, 'label': c, 'field': c} for c in cols]
     rows = [dict(zip(cols, row)) for row in data]
     table = areas[entity]
-    table.update_columns(cols_def)
-    table.update_rows(rows)
+    table.clear()
+    table = ui.table(columns=cols_def, rows=rows).classes('full-width')
 
 
 def show_all(entity, areas):
-    cols, data = db_manager.execute_query(f"SELECT * FROM {entity} LIMIT 100")
+    cols, data = db_manager.execute_query(f"SELECT * FROM {entity} LIMIT 100;")
     display_result(entity, cols, data, areas)
 
 
 def count_rows(entity, areas):
-    cols, data = db_manager.execute_query(f"SELECT COUNT(*) AS count FROM {entity}")
+    cols, data = db_manager.execute_query(f"SELECT COUNT(*) AS count FROM {entity};")
     display_result(entity, cols, data, areas)
 
 

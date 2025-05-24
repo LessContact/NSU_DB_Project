@@ -1,0 +1,4 @@
+w_id,specialisation,education,is_wsh_super,is_master,section
+11,1,Среднее профессиональное,False,True,1
+12,2,Среднее профессиональное,False,False,2
+13,3,Высшее техническое,True,False,3
