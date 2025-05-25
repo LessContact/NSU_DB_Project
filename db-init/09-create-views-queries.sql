@@ -12,20 +12,35 @@ JOIN workshops w ON p.workshop_id = w.wsh_id;
 
 
 -- 2) Получить число и перечень изделий отдельной категории и в целом, собранных указанным цехом, участком, предприятием в целом за определенный отрезок времени.
-CREATE OR REPLACE VIEW v_products_base AS
+CREATE OR REPLACE FUNCTION get_product_assembly_summary(
+    p_start_date DATE,
+    p_end_date   DATE
+)
+RETURNS TABLE(
+    agg_level      TEXT,
+    workshop       VARCHAR,
+    section        VARCHAR,
+    category       VARCHAR,
+    product_count  BIGINT,
+    product_list   TEXT[]
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+RETURN QUERY
+WITH base AS (
+    SELECT
+        p.p_id,
+        p.name AS product_name,
+        p.workshop_id AS wsh_id,
+        a.section_id AS section_id,
+        p.category AS category_id
+    FROM products p
+    LEFT JOIN assembly a ON p.p_id = a.product_id
+    WHERE p.begin_date BETWEEN p_start_date AND p_end_date
+    )
 SELECT
-    p.p_id,
-    p.name AS product_name,
-    p.begin_date,
-    p.workshop_id AS wsh_id,
-    a.section_id,
-    p.category AS category_id
-FROM products p
-LEFT JOIN assembly ON p.p_id = a.product_id;
-
-CREATE OR REPLACE VIEW v_product_assembly_summary AS
-SELECT
-    CASE
+    CASE    
         WHEN wsh_id IS NULL AND section_id IS NULL AND category_id IS NULL
             THEN 'enterprise_total'
         WHEN wsh_id IS NULL AND section_id IS NULL
@@ -35,24 +50,29 @@ SELECT
         ELSE 'section'
     END AS agg_level,
 
-    wsh_id,
-    section_id,
-    category_id,
+    w.name AS workshop,
+    s.name AS section,
+    c.name AS category,
+    COUNT(DISTINCT b.p_id) AS product_count,
+    ARRAY_AGG(DISTINCT b.product_name ORDER BY b.product_name) AS product_list
+  
+FROM base b
+LEFT JOIN workshops w ON b.wsh_id = w.wsh_id
+LEFT JOIN sections s ON b.section_id = s.s_id
+LEFT JOIN product_categories c ON b.category_id = c.c_id
 
-    COUNT(DISTINCT p_id) AS product_count,
-    ARRAY_AGG(DISTINCT product_name ORDER BY product_name) AS product_list
-FROM vw_products_base
-
-GROUP BY ROLLUP (wsh_id, section_id, category_id)
+GROUP BY ROLLUP (b.wsh_id, b.section_id, b.category_id)
 ORDER BY
   -- enterprise total first, then enterprise by category, then workshop, then section:
     CASE
-        WHEN wsh_id IS NULL AND section_id IS NULL AND category_id IS NULL THEN 1
-        WHEN wsh_id IS NULL AND section_id IS NULL                     THEN 2
-        WHEN section_id IS NULL                                       THEN 3
+        WHEN b.wsh_id IS NULL AND b.section_id IS NULL AND b.category_id IS NULL THEN 1
+        WHEN b.wsh_id IS NULL AND b.section_id IS NULL THEN 2
+        WHEN b.section_id IS NULL THEN 3
         ELSE 4
     END,
-    wsh_id, section_id, category_id;
+    b.wsh_id, b.section_id, b.category_id;
+END;
+$$;
 
 
 -- 3) Получить данные о кадровом составе цеха, предприятия в целом и по указанным категориям инженерно-технического персонала и рабочих.
@@ -219,7 +239,7 @@ SELECT DISTINCT
     t.product_id,
     p.name AS product_name,
     t.lab_id,
-    l.name AS lab_name,
+    l.name AS lab_name
 FROM Test t
 JOIN Products p ON t.product_id = p.p_id
 JOIN Labs l ON t.lab_id = l.l_id;
