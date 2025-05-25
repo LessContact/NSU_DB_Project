@@ -52,11 +52,15 @@ class DBManager:
                 try:
                     cols = [d[0] for d in cur.description]
                     data = cur.fetchall()
+                    self.conn.commit()
                     return cols, data
                 except psycopg.ProgrammingError as e:
+                    self.conn.rollback()
                     ui.notify(f"DB error: {e}", color='negative')
                     return [], []
         except Exception as e:
+            if self.conn:
+                self.conn.rollback()
             ui.notify(f"DB error: {e}", color='negative')
             return [], []
 
