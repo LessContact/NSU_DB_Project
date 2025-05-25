@@ -35,6 +35,11 @@ CREATE TABLE "grades" (
   "payment" NUMERIC(10,2) NOT NULL
 );
 
+CREATE TABLE "work_types" (
+  "t_id" SERIAL PRIMARY KEY,
+  "name" VARCHAR(255) NOT NULL
+);
+
 CREATE TABLE "worker_types" (
   "tp_id" SERIAL PRIMARY KEY,
   "name" VARCHAR(255) NOT NULL
@@ -58,13 +63,13 @@ CREATE TABLE "brigade" (
 CREATE TABLE "workers" (
   "w_id" INTEGER PRIMARY KEY REFERENCES "employees"("w_id") ON DELETE CASCADE ON UPDATE NO ACTION,
   "brigade_id" INTEGER REFERENCES "brigade"("b_id") ON DELETE SET NULL ON UPDATE NO ACTION,
-  "specialisation" INTEGER NOT NULL REFERENCES "worker_types"("tp_id") ON DELETE NO ACTION ON UPDATE NO ACTION,
+  "specialisation" INTEGER NOT NULL REFERENCES "work_types"("t_id") ON DELETE NO ACTION ON UPDATE NO ACTION,
   "is_brigadier" BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE TABLE "ete" (
   "w_id" INTEGER PRIMARY KEY REFERENCES "employees"("w_id") ON DELETE CASCADE ON UPDATE NO ACTION,
-  "specialisation" INTEGER NOT NULL REFERENCES "worker_types"("tp_id") ON DELETE NO ACTION ON UPDATE NO ACTION,
+  "specialisation" INTEGER NOT NULL REFERENCES "work_types"("t_id") ON DELETE NO ACTION ON UPDATE NO ACTION,
   "education" VARCHAR(255) NOT NULL,
   "is_wsh_super" BOOLEAN NOT NULL DEFAULT FALSE,
   "is_master" BOOLEAN NOT NULL DEFAULT FALSE,
@@ -116,11 +121,6 @@ CREATE TABLE "masters" (
   "unique_id" SERIAL PRIMARY KEY,
   "w_id" INTEGER NOT NULL REFERENCES "employees"("w_id") ON DELETE CASCADE ON UPDATE NO ACTION,
   "s_id" INTEGER NOT NULL REFERENCES "sections"("s_id") ON DELETE CASCADE ON UPDATE NO ACTION
-);
-
-CREATE TABLE "work_types" (
-  "t_id" SERIAL PRIMARY KEY,
-  "name" VARCHAR(255) NOT NULL
 );
 
 CREATE TABLE "assembly" (
