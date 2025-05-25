@@ -176,35 +176,42 @@ JOIN Employees e ON m.w_id = e.w_id;
 
 -- 8) Получить перечень изделий отдельной категории и в целом, собираемых в настоящий момент указанным участком, цехом, предприятием.
 CREATE OR REPLACE VIEW v_currently_assembling AS
-SELECT
-    a.a_id,
+SELECT DISTINCT
     p.p_id AS product_id,
     p.name AS product_name,
-    p.category,
-    a.section_id,
+    p.category AS category_id,
+    pc.name AS category_name,
+    s.s_id AS section_id,
     s.name AS section_name,
-    s.workshop_id AS workshop_id,
-    w.name AS workshop_name,
-    a.brigade_id,
-    b.name AS brigade_name,
-    a.begin_date
-FROM Assembly a
-JOIN Products p ON a.product_id = p.p_id
-JOIN Sections s ON a.section_id = s.s_id
-JOIN Workshops w ON s.workshop_id = w.wsh_id
-JOIN Brigade b ON a.brigade_id = b.b_id
-WHERE a.end_date IS NULL;
+    w.wsh_id AS workshop_id,
+    w.name AS workshop_name
+FROM products p
+JOIN product_categories pc ON p.category = pc.c_id
+
+JOIN assembly a ON a.product_id = p.p_id AND a.end_date IS NULL
+
+JOIN sections s ON a.section_id = s.s_id
+JOIN workshops w ON s.workshop_id = w.wsh_id;
+
 
 -- 9) Получить состав бригад, участвующих в сборке указанного изделия.
-CREATE OR REPLACE VIEW v_product_brigades AS
+CREATE OR REPLACE VIEW v_product_brigade_composition AS
 SELECT DISTINCT
-    a.product_id,
+    p.p_id AS product_id,
     p.name AS product_name,
-    a.brigade_id,
-    b.name AS brigade_name
-FROM Assembly a
-JOIN Products p ON a.product_id = p.p_id
-JOIN Brigade b ON a.brigade_id = b.b_id;
+    b.b_id AS brigade_id,
+    b.name AS brigade_name,
+    w.w_id AS worker_id,
+    e.full_name AS worker_name,
+    wt.name AS specialisation,
+    w.is_brigadier AS is_brigadier
+FROM assembly a
+JOIN products p ON a.product_id = p.p_id
+JOIN brigade b ON a.brigade_id = b.b_id
+JOIN workers w ON w.brigade_id = b.b_id
+JOIN employees e ON e.w_id = w.w_id
+JOIN worker_types wt ON w.specialisation = wt.tp_id;
+
 
 -- 10) Получить перечень испытательных лабораторий, участвующих в испытаниях некоторого конкретного изделия.
 CREATE OR REPLACE VIEW v_product_test_labs AS
@@ -213,23 +220,25 @@ SELECT DISTINCT
     p.name AS product_name,
     t.lab_id,
     l.name AS lab_name,
-    t.test_date
 FROM Test t
 JOIN Products p ON t.product_id = p.p_id
 JOIN Labs l ON t.lab_id = l.l_id;
 
 -- 11) Получить перечень изделий отдельной категории и в целом, проходивших испытание в указанной лаборатории за определенный период.
-CREATE OR REPLACE VIEW v_lab_tests AS
-SELECT
+CREATE OR REPLACE VIEW v_lab_tested_products AS
+SELECT DISTINCT
     t.lab_id,
     l.name AS lab_name,
-    p.p_id,
+    p.category AS category_id,
+    pc.name AS category_name,
+    p.p_id AS product_id,
     p.name AS product_name,
-    p.category,
     t.test_date
-FROM Test t
-JOIN Products p ON t.product_id = p.p_id
-JOIN Labs l ON t.lab_id = l.l_id;
+FROM test t
+JOIN products p ON t.product_id = p.p_id
+JOIN product_categories pc ON p.category = pc.c_id
+JOIN labs l ON t.lab_id = l.l_id;
+
 
 -- 12) Получить список испытателей, участвующих в испытаниях указанного изделия, изделий отдельной категории и в целом в некоторой лаборатории за определенный период.
 CREATE OR REPLACE VIEW v_testers_activity AS
@@ -237,17 +246,20 @@ SELECT
     tt.test_id,
     t.product_id,
     p.name AS product_name,
-    p.category,
+    p.category AS category_id,
+    pc.name AS category_name,
     t.lab_id,
     l.name AS lab_name,
     tt.tw_id AS tester_w_id,
     e.full_name AS tester_name,
     t.test_date
-FROM Test_Testers tt
-JOIN Test t ON tt.test_id = t.t_id
-JOIN Products p ON t.product_id = p.p_id
-JOIN Labs l ON t.lab_id = l.l_id
-JOIN Employees e ON tt.tw_id = e.w_id;
+FROM test_testers tt
+JOIN test t ON tt.test_id = t.t_id
+JOIN products p ON t.product_id = p.p_id
+JOIN product_categories pc ON p.category = pc.c_id
+JOIN labs l ON t.lab_id = l.l_id
+JOIN employees e ON tt.tw_id = e.w_id;
+
 
 -- 13) Получить состав оборудования, использовавшегося при испытании указанного изделия, изделий отдельной категории и в целом в некоторой лаборатории за определенный период.
 CREATE OR REPLACE VIEW v_equipment_usage AS
@@ -255,29 +267,35 @@ SELECT
     t.t_id AS test_id,
     t.product_id,
     p.name AS product_name,
-    p.category,
+    p.category AS category_id,
+    pc.name AS category_name,
     t.lab_id,
     l.name AS lab_name,
     t.equipment_id,
     eq.name AS equipment_name,
     t.test_date
-FROM Test t
-JOIN Products p ON t.product_id = p.p_id
-JOIN Labs l ON t.lab_id = l.l_id
-LEFT JOIN Equipment eq ON t.equipment_id = eq.e_id;
+FROM test t
+JOIN products p ON t.product_id = p.p_id
+JOIN labs l ON t.lab_id = l.l_id
+JOIN product_categories pc ON p.category = pc.c_id
+LEFT JOIN equipment eq ON t.equipment_id = eq.e_id;
 
 -- 14) Получить число и перечень изделий отдельной категории и в целом, собираемых указанным цехом, участком, предприятием в целом в настоящее время.
 CREATE OR REPLACE VIEW v_ongoing_product_counts AS
-SELECT 
+SELECT
     w.name AS workshop_name,
     s.name AS section_name,
     pc.name AS category_name,
     COUNT(DISTINCT p.p_id) AS product_count,
-    array_agg(DISTINCT p.name) AS product_names
-FROM assembly a
-JOIN products p ON a.product_id = p.p_id
-JOIN product_categories pc ON p.category = pc.c_id
-JOIN sections s ON a.section_id = s.s_id
-JOIN workshops w ON s.workshop_id = w.wsh_id
+    ARRAY_AGG(DISTINCT p.name) AS product_names
+
+FROM assembly AS a
+JOIN products AS p ON a.product_id = p.p_id
+JOIN product_categories AS pc ON p.category = pc.c_id
+JOIN sections AS s ON a.section_id = s.s_id
+JOIN workshops AS w ON s.workshop_id = w.wsh_id
+
 WHERE a.end_date IS NULL OR a.end_date >= CURRENT_DATE
-GROUP BY w.name, s.name, pc.name;
+
+GROUP BY ROLLUP (w.name, s.name, pc.name);
+
