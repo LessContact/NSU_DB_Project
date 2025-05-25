@@ -1,11 +1,13 @@
 from nicegui import ui
+
+from add_dialog_builder import dialog_builders
+from db import db_manager
+from generic_dialog import build_generic_add_dialog
 from ui_common import show_all, count_rows, custom_query, get_user_tables
 
 
 def build_dashboard(user, on_logout):
     entities = get_user_tables(user.role)
-
-    labels = [ent.capitalize() for ent in entities]
     result_areas = {}
 
     with ui.column().classes('full-width') as dashboard_page:
@@ -14,7 +16,7 @@ def build_dashboard(user, on_logout):
             ui.space().classes('grow')
             ui.button('Выйти', on_click=on_logout).classes('q-btn-negative')
 
-        labels = [ent.capitalize() for ent in entities]
+        labels = entities
         with ui.row().classes('full-width full-height'):
             with ui.column().classes('w-1/4 h-full').style('max-width: 200px;'):
                 with ui.tabs().props('vertical').classes('full-width center') as tabs:
@@ -25,8 +27,13 @@ def build_dashboard(user, on_logout):
                     for lbl in labels:
                         with ui.tab_panel(lbl):
                             with ui.row().classes('full-width q-gutter-sm'):
+                                # Buttons go HEREEEEEE
+                                # Add button with dialogggg
+                                builder = dialog_builders.get(lbl, build_generic_add_dialog)
+                                dlg = builder(db_manager.conn, lbl)
+                                ui.button(f'Add to {lbl}', on_click=dlg.open)
+
                                 ui.button('Показать все', on_click=lambda e=lbl: show_all(e, result_areas)).classes('q-btn-primary')
-                                ui.button('Счет строк', on_click=lambda e=lbl: count_rows(e, result_areas)).classes('q-btn-positive')
 
                             with ui.card().classes('full-width'):
                                 ui.label('Выполнить произвольный запрос:').classes('text-weight-bold')

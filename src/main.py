@@ -24,7 +24,7 @@ def index_page():
 
 @ui.page('/login')
 def login_page():
-    async def handle_login(role: str):
+    def handle_login(role: str):
         if user.change_role(role):
             ui.notify(f'Вход выполнен как {role}', color='positive')
             redirect_based_on_role()
