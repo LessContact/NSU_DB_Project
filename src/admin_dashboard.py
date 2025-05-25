@@ -1,18 +1,21 @@
 from nicegui import ui
-from ui_common import show_all, count_rows, custom_query
+from ui_common import show_all, count_rows, custom_query, get_user_tables
+
 
 def build_dashboard(user, on_logout):
-    entities = ['Products', 'Employees', 'Assembly', 'Workshops']
+    entities = get_user_tables(user.role)
+
+    labels = [ent.capitalize() for ent in entities]
     result_areas = {}
 
     with ui.column().classes('full-width') as dashboard_page:
-        with ui.row().classes('full-width items-center q-pa-md'):
+        with ui.row().classes('full-width items-center q-pb-sm'):
             ui.label('').classes('text-h6').bind_text_from(user, 'role', lambda x: 'Вы вошли как ' + x)
             ui.space().classes('grow')
             ui.button('Выйти', on_click=on_logout).classes('q-btn-negative')
 
         labels = [ent.capitalize() for ent in entities]
-        with ui.tabs().classes('full-width center') as tabs:
+        with ui.tabs().props('scrollable').classes('full-width center') as tabs:
             for lbl in labels:
                 ui.tab(lbl)
 

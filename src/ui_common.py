@@ -1,5 +1,37 @@
 from nicegui import ui
 from db import db_manager
+import psycopg
+from src.config import DSN_ADMIN, DSN_HR
+
+def get_user_tables(role: str):
+    conn = None
+    try:
+        if role == 'hr':
+            conn = psycopg.connect(DSN_HR)
+        elif role == 'admin':
+            conn = psycopg.connect(DSN_ADMIN)
+        else:
+            ui.notify("Invalid role specified", color='negative')
+            return None
+
+        """Return all public tables the current user can SELECT."""
+        query = """
+                SELECT table_name
+                FROM information_schema.tables
+                WHERE table_schema = 'public'
+                  AND table_type = 'BASE TABLE'
+                  AND has_table_privilege(table_schema || '.' || table_name, 'SELECT')
+                ORDER BY table_name;
+                """
+        with conn.cursor() as cur:
+            cur.execute(query)
+            conn.close()
+            return [row[0] for row in cur.fetchall()]
+    except Exception as e:
+        ui.notify(f"Failed to populate entities", color='negative')
+        if conn:
+            conn.close()
+        return None
 
 def display_result(entity, cols, data, areas):
     if not data:
