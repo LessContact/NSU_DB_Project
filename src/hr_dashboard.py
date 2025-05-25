@@ -14,16 +14,18 @@ def build_dashboard(user, on_logout):
             ui.button('Выйти', on_click=on_logout).classes('q-btn-negative')
 
         labels = [ent.capitalize() for ent in entities]
-        with ui.tabs().classes('full-width center') as tabs:
-            for lbl in labels:
-                ui.tab(lbl)
+        with ui.row().classes('full-width full-height'):
+            with ui.column().classes('w-1/4 h-full').style('max-width: 200px;'):
+                with ui.tabs().props('vertical').classes('full-width center') as tabs:
+                    for lbl in labels:
+                        ui.tab(lbl)
+            with ui.column().style('flex: 1;'):
+                with ui.tab_panels(tabs, value=labels[0]).props('vertical').classes('full-width center') as panels:
+                    for lbl in labels:
+                        with ui.tab_panel(lbl):
+                            with ui.row().classes('full-width q-gutter-sm'):
+                                ui.button('Показать все', on_click=lambda e=lbl: show_all(e, result_areas)).classes('q-btn-primary')
 
-        with ui.tab_panels(tabs, value=labels[0]).classes('full-width center') as panels:
-            for lbl in labels:
-                with ui.tab_panel(lbl):
-                    with ui.row().classes('full-width q-gutter-sm'):
-                        ui.button('Показать все', on_click=lambda e=lbl: show_all(e, result_areas)).classes('q-btn-primary')
-
-                    ui.separator()
-                    result_areas[lbl] = ui.table(columns=[], rows=[]).classes('full-width')
+                            ui.separator()
+                            result_areas[lbl] = ui.table(columns=[], rows=[]).classes('full-width')
     return dashboard_page
