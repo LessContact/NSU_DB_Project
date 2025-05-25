@@ -81,7 +81,7 @@ COPY "equipment" (l_id, name, type)
     FROM '/csv-data/equipment.csv'
     WITH (FORMAT csv, HEADER true, DELIMITER ',', ENCODING 'UTF8');
 
-COPY "testers" (l_id)
+COPY "testers" (w_id, l_id)
     FROM '/csv-data/testers.csv'
     WITH (FORMAT csv, HEADER true, DELIMITER ',', ENCODING 'UTF8');
 
