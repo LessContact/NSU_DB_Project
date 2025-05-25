@@ -10,57 +10,108 @@ FROM products p
 JOIN product_categories pc ON p.category = pc.c_id
 JOIN workshops w ON p.workshop_id = w.wsh_id;
 
+
 -- 2) Получить число и перечень изделий отдельной категории и в целом, собранных указанным цехом, участком, предприятием в целом за определенный отрезок времени.
-CREATE OR REPLACE VIEW v_products_assembled AS
+CREATE OR REPLACE VIEW v_products_base AS
 SELECT
-    a.section_id,
-    s.name AS section_name,
-    a.product_id,
+    p.p_id,
     p.name AS product_name,
-    p.category,
-    a.brigade_id,
-    COUNT(*) OVER (PARTITION BY a.section_id, p.category) AS cnt_by_section_category,
-    COUNT(*) OVER (PARTITION BY a.section_id) AS cnt_by_section,
-    COUNT(*) OVER (PARTITION BY p.category) AS cnt_by_category,
-    COUNT(*) OVER () AS cnt_total,
-    a.begin_date,
-    a.end_date
-FROM Assembly a
-JOIN Products p ON a.product_id = p.p_id
-JOIN Sections s ON a.section_id = s.s_id;
+    p.begin_date,
+    p.workshop_id AS wsh_id,
+    a.section_id,
+    p.category AS category_id
+FROM products p
+LEFT JOIN assembly ON p.p_id = a.product_id;
+
+CREATE OR REPLACE VIEW v_product_assembly_summary AS
+SELECT
+    CASE
+        WHEN wsh_id IS NULL AND section_id IS NULL AND category_id IS NULL
+            THEN 'enterprise_total'
+        WHEN wsh_id IS NULL AND section_id IS NULL
+            THEN 'enterprise_by_category'
+        WHEN section_id IS NULL
+            THEN 'workshop'
+        ELSE 'section'
+    END AS agg_level,
+
+    wsh_id,
+    section_id,
+    category_id,
+
+    COUNT(DISTINCT p_id) AS product_count,
+    ARRAY_AGG(DISTINCT product_name ORDER BY product_name) AS product_list
+FROM vw_products_base
+
+GROUP BY ROLLUP (wsh_id, section_id, category_id)
+ORDER BY
+  -- enterprise total first, then enterprise by category, then workshop, then section:
+    CASE
+        WHEN wsh_id IS NULL AND section_id IS NULL AND category_id IS NULL THEN 1
+        WHEN wsh_id IS NULL AND section_id IS NULL                     THEN 2
+        WHEN section_id IS NULL                                       THEN 3
+        ELSE 4
+    END,
+    wsh_id, section_id, category_id;
+
 
 -- 3) Получить данные о кадровом составе цеха, предприятия в целом и по указанным категориям инженерно-технического персонала и рабочих.
 CREATE OR REPLACE VIEW v_staff_composition AS
 SELECT
     e.w_id,
     e.full_name,
-    e.worker_type,
-    wt.name AS worker_type_name,
     e.hire_date,
     e.leave_date,
+    e.worker_type,
+    wt.name AS worker_type_name,
     et.education,
     et.is_master,
     et.is_wsh_super,
-    t.brigade_id,
-    t.specialisation
+    et.section AS section_id,
+
+    sec.name AS section_name,
+    sec.workshop_id,
+    wsh.name AS workshop_name,
+
+    w.brigade_id,
+    w.specialisation
 FROM Employees e
-JOIN Worker_types wt ON e.worker_type = wt.tp_id
-LEFT JOIN ETE et ON e.w_id = et.w_id
-LEFT JOIN Workers t ON e.w_id = t.w_id;
+JOIN worker_types wt ON e.worker_type = wt.tp_id
+
+LEFT JOIN ete et ON e.w_id = et.w_id
+LEFT JOIN sections sec ON et.section = sec.s_id
+LEFT JOIN workshops wsh ON sec.workshop_id = wsh.wsh_id
+
+LEFT JOIN workers w ON e.w_id = w.w_id;
+
 
 -- 4) Получить число и перечень участков указанного цеха, предприятия в целом и их начальников.
-CREATE OR REPLACE VIEW v_sections_and_chiefs AS
+CREATE OR REPLACE VIEW v_sections_and_chiefs_summary AS
 SELECT
-    s.s_id,
-    s.name AS section_name,
-    s.workshop_id,
-    w.name AS workshop_name,
-    m.w_id AS master_w_id,
-    e.full_name AS master_name
-FROM Sections s
-JOIN Workshops w ON s.workshop_id = w.wsh_id
-LEFT JOIN Masters m ON s.s_id = m.s_id
-LEFT JOIN Employees e ON m.w_id = e.w_id;
+    -- NULL workshop_id -> enterprise‐wide aggregate
+    w.wsh_id,
+    w.name  AS workshop_name,
+
+    -- count + list of sections in this workshop (or in the whole plant when wsh_id IS NULL)
+    COUNT(DISTINCT s.s_id) AS section_count,
+    ARRAY_AGG(DISTINCT s.name ORDER BY s.name) AS section_list,
+
+    -- list of chiefs marked is_wsh_super for this workshop (or all chiefs for enterprise)
+    ARRAY_AGG(DISTINCT e.full_name ORDER BY e.full_name) AS chief_list
+FROM workshops w
+LEFT JOIN sections s ON s.workshop_id = w.wsh_id
+-- join to find the one (or more) ETEs flagged as workshop‐super for this workshop */
+LEFT JOIN sections sec2 ON sec2.workshop_id = w.wsh_id
+LEFT JOIN ete t ON t.section = sec2.s_id
+                AND t.is_wsh_super = TRUE
+LEFT JOIN employees e ON e.w_id = t.w_id
+
+GROUP BY ROLLUP (w.wsh_id, w.name)
+
+ORDER BY
+    CASE WHEN wsh_id IS NULL THEN 0 ELSE 1 END,
+    wsh_id;
+
 
 -- 5) Получить перечень работ, которые проходит указанное изделие.
 CREATE OR REPLACE VIEW v_product_assembly_history AS
@@ -78,26 +129,36 @@ SELECT
     a.description
 FROM Assembly a
 JOIN Products p ON a.product_id = p.p_id
-LEFT JOIN Brigade b ON a.brigade_id = b.b_id
-LEFT JOIN Sections s ON a.section_id = s.s_id
-LEFT JOIN Work_types wt ON a.work_type = wt.t_id;
+JOIN Brigade b ON a.brigade_id = b.b_id
+JOIN Sections s ON a.section_id = s.s_id
+JOIN Work_types wt ON a.work_type = wt.t_id;
 
 -- 6) Получить состав бригад указанного участка, цеха.
 CREATE OR REPLACE VIEW v_brigade_composition AS
-SELECT 
+SELECT DISTINCT
+    s.s_id AS section_id,
     s.name AS section_name,
-    w.name AS workshop_name,
+    wsh.wsh_id AS workshop_id,
+    wsh.name AS workshop_name,
+    b.b_id AS brigade_id,
     b.name AS brigade_name,
+    e.w_id AS worker_id,
     e.full_name AS worker_name,
     wt.name AS specialisation,
-    w1.is_brigadier
-FROM workers w1
-JOIN employees e ON w1.w_id = e.w_id
-JOIN worker_types wt ON w1.specialisation = wt.tp_id
-JOIN brigade b ON w1.brigade_id = b.b_id
-JOIN assembly a ON a.brigade_id = b.b_id
-JOIN sections s ON a.section_id = s.s_id
-JOIN workshops w ON s.workshop_id = w.wsh_id;
+    w.is_brigadier AS is_brigadier
+FROM workers w
+JOIN employees e ON w.w_id = e.w_id
+JOIN worker_types wt ON w.specialisation = wt.tp_id
+JOIN brigade b ON w.brigade_id = b.b_id
+
+/* infer which sections this brigade has worked in */
+JOIN (
+    SELECT DISTINCT brigade_id, section_id
+    FROM assembly
+) AS ab ON ab.brigade_id = b.b_id
+JOIN sections       s   ON ab.section_id = s.s_id
+JOIN workshops      wsh ON s.workshop_id = wsh.wsh_id;
+
 
 -- 7) Получить список мастеров указанного участка, цеха.
 CREATE OR REPLACE VIEW v_section_masters AS
