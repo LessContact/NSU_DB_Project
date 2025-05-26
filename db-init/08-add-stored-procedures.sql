@@ -25,7 +25,7 @@ DECLARE
     v_worker_type_name VARCHAR(255);
 BEGIN
     
-    SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+    --  SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
 
     -- Get the worker type name
     SELECT name INTO v_worker_type_name
@@ -59,9 +59,8 @@ BEGIN
     RETURNING w_id INTO v_employee_id;
     
     -- Insert into subtype based on worker type
-    IF v_worker_type_name = 'Worker' THEN
+    IF v_worker_type_name = 'Рабочий' THEN
         IF p_specialisation IS NULL THEN
-            ROLLBACK;
             RAISE EXCEPTION 'Specialisation is required for workers';
         END IF;
         
@@ -79,7 +78,6 @@ BEGIN
                     AND is_brigadier = true
                     FOR UPDATE
                 ) THEN
-                    ROLLBACK;
                     RAISE EXCEPTION 'Brigade % already has a brigadier', p_brigade_id;
                 END IF;
             END IF;
@@ -98,14 +96,12 @@ BEGIN
             p_is_brigadier
         );
         
-    ELSIF v_worker_type_name = 'ETE' THEN
+    ELSIF v_worker_type_name = 'Инженер' THEN
         IF p_education IS NULL THEN
-            ROLLBACK;
             RAISE EXCEPTION 'Education is required for ETE employees';
         END IF;
         
         IF p_specialisation IS NULL THEN
-            ROLLBACK;
             RAISE EXCEPTION 'Specialisation is required for ETE employees';
         END IF;
 
@@ -132,9 +128,8 @@ BEGIN
             p_section
         );
         
-    ELSIF v_worker_type_name = 'Tester' THEN
+    ELSIF v_worker_type_name = 'Тестировщик' THEN
         IF p_lab_id IS NULL THEN
-            ROLLBACK;
             RAISE EXCEPTION 'Lab ID is required for testers';
         END IF;
         
@@ -156,7 +151,6 @@ BEGIN
     END IF;
     
     RAISE NOTICE 'Employee % added successfully with ID %', p_full_name, v_employee_id;
-    COMMIT;
 END;
 $$;
 
@@ -171,7 +165,7 @@ DECLARE
     v_employee_name VARCHAR(255);
 BEGIN
     
-    SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+    --SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
 
     -- Check if employee exists
     SELECT full_name, wt.name 
@@ -182,7 +176,6 @@ BEGIN
     FOR UPDATE;
     
     IF v_employee_name IS NULL THEN
-        ROLLBACK;
         RAISE EXCEPTION 'Employee with ID % not found', p_employee_id;
     END IF;
 
@@ -193,7 +186,6 @@ BEGIN
         WHERE w_id = p_employee_id
         FOR UPDATE
     ) THEN
-        ROLLBACK;
         RAISE EXCEPTION 'Cannot delete employee % who is an active master', p_employee_id;
     END IF;
     
@@ -201,7 +193,6 @@ BEGIN
     DELETE FROM employees WHERE w_id = p_employee_id;
     
     RAISE NOTICE 'Employee % removed successfully', v_employee_name;
-    COMMIT;
 END;
 $$;
 
@@ -232,7 +223,7 @@ DECLARE
     v_product_id INTEGER;
 BEGIN
     
-    SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+    --SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
 
     PERFORM 1 FROM product_categories 
     WHERE c_id = p_category 
@@ -258,9 +249,8 @@ BEGIN
     RETURNING p_id INTO v_product_id;
     
     -- Insert into appropriate subtype based on product type
-    IF p_product_type = 'vehicle' THEN
+    IF p_product_type = 'Воздушные суда' THEN
         IF p_use_type IS NULL OR p_vehicle_type IS NULL THEN
-            ROLLBACK;
             RAISE EXCEPTION 'Use type and vehicle type are required for vehicles';
         END IF;
         
@@ -283,9 +273,8 @@ BEGIN
             p_armaments
         );
         
-    ELSIF p_product_type = 'missile' THEN
+    ELSIF p_product_type = 'Ракеты' THEN
         IF p_missile_type IS NULL THEN
-            ROLLBACK;
             RAISE EXCEPTION 'Missile type is required for missiles';
         END IF;
         
@@ -302,9 +291,8 @@ BEGIN
             p_range
         );
         
-    ELSIF p_product_type = 'other' THEN
+    ELSIF p_product_type = 'Другой' THEN
         IF p_text_specification IS NULL THEN
-            ROLLBACK;
             RAISE EXCEPTION 'Text specification is required for other products';
         END IF;
         
@@ -318,12 +306,10 @@ BEGIN
         );
         
     ELSE
-        ROLLBACK;
         RAISE EXCEPTION 'Invalid product type: %. Must be "vehicle", "missile", or "other"', p_product_type;
     END IF;
     
     RAISE NOTICE 'Product % added successfully with ID %', p_name, v_product_id;
-    COMMIT;
 END;
 $$;
 
