@@ -13,21 +13,33 @@ def register_dialog(table_name: str):
     return decorator
 
 
-def fetch_options(conn):
+def fetch_options(conn, table_type='employees'):
     """
     Fetches option lists and ID mappings for select widgets in one cursor context.
     Returns a tuple (options, id_maps) where:
       - options is a dict of lists for UI selects
       - id_maps is a dict of dicts mapping name -> id
+
+    Args:
+        conn: Database connection
+        table_type: Type of options to fetch ('employees' or 'products')
     """
-    tables = {
-        "grade":    ("grades",      "grade_title", "g_id"),
-        "worker_type": ("worker_types","name",        "tp_id"),
-        "brigade":  ("brigade",     "name",        "b_id"),
-        "specialisation": ("work_types",  "name",        "t_id"),
-        "section":  ("sections",    "name",        "s_id"),
-        "lab":      ("labs",        "name",        "l_id"),
-    }
+    if table_type == 'employees':
+        tables = {
+            "grade": ("grades", "grade_title", "g_id"),
+            "worker_type": ("worker_types", "name", "tp_id"),
+            "brigade": ("brigade", "name", "b_id"),
+            "specialisation": ("work_types", "name", "t_id"),
+            "section": ("sections", "name", "s_id"),
+            "lab": ("labs", "name", "l_id"),
+        }
+    elif table_type == 'products':
+        tables = {
+            "category": ("product_categories", "name", "c_id"),
+            "workshop": ("workshops", "name", "wsh_id"),
+        }
+    else:
+        raise ValueError(f"Unsupported table_type: {table_type}")
 
     options = {}
     id_maps = {}
@@ -35,15 +47,15 @@ def fetch_options(conn):
         with conn.transaction():
             for key, (tbl, namecol, idcol) in tables.items():
                 q = sql.SQL("SELECT {id}, {name} FROM {tbl} ORDER BY {id}").format(
-                    id  = sql.Identifier(idcol),
-                    name= sql.Identifier(namecol),
-                    tbl = sql.Identifier(tbl)
+                    id=sql.Identifier(idcol),
+                    name=sql.Identifier(namecol),
+                    tbl=sql.Identifier(tbl)
                 )
                 cur.execute(q)
                 rows = cur.fetchall()
                 # build option list and id map
                 options[f"{key}_options"] = [row[1] for row in rows]
-                id_maps[f"{key}_map"]      = {row[1]: row[0] for row in rows}
+                id_maps[f"{key}_map"] = {row[1]: row[0] for row in rows}
 
     return options, id_maps
 
@@ -158,3 +170,120 @@ def build_employees_dialog(conn, table_name):
         ui.button('Create', on_click=on_submit).classes('q-btn-primary')
     return dialog
 
+
+@register_dialog('products')
+def build_products_dialog(conn, table_name):
+    try:
+        opts, id_maps = fetch_options(conn, table_type='products')
+    except Exception as e:
+        ui.notify(f"Error fetching options: {e}", color='negative')
+        opts = {k + '_options': [] for k in ['category', 'workshop']}
+        id_maps = {k + '_map': {} for k in ['category', 'workshop']}
+
+    with ui.dialog() as dialog, ui.card().classes('w-1/2'):
+        ui.label('Add Product').classes('text-h6')
+
+        # Basic product information
+        name_input = ui.input(label='Product Name')
+        category_input = ui.select(opts['category_options'], label='Category')
+        workshop_input = ui.select(opts['workshop_options'], label='Workshop')
+        begin_date = create_date_input_field("Begin Date")
+
+        product_type = category_input
+        use_type = ui.input(label='Use Type', placeholder='e.g. Combat, Transport')
+        vehicle_type = ui.input(label='Vehicle Type', placeholder='e.g. Fixed-wing, Rotary-wing')
+        cargo_cap = ui.number(label='Cargo Capacity')
+        pass_count = ui.number(label='Passenger Count')
+        eng_count = ui.number(label='Engine Count')
+        armaments = ui.input(label='Armaments')
+
+        missile_type = ui.input(label='Missile Type')
+        payload = ui.number(label='Payload (kg)')
+        range_km = ui.number(label='Range (km)')
+
+        text_spec = ui.textarea(label='Text Specification')
+
+        def on_submit():
+            # gather core
+            p_name = name_input.value
+            p_category_name = category_input.value
+            p_workshop_name = workshop_input.value
+            p_begin = begin_date.value or None
+            p_type = product_type.value
+
+            # map to IDs
+            try:
+                p_category = id_maps['category_map'][p_category_name]
+                p_workshop = id_maps['workshop_map'][p_workshop_name]
+            except KeyError as e:
+                ui.notify(f"Invalid selection: {e}", color='negative')
+                return
+
+            p_use_type = use_type.value or None
+            p_vehicle_type = vehicle_type.value or None
+            p_cargo_cap = cargo_cap.value or None
+            p_pass_count = pass_count.value or None
+            p_eng_count = eng_count.value or None
+            p_armaments = armaments.value or None
+
+            p_missile_type = missile_type.value or None
+            p_payload = payload.value or None
+            p_range = range_km.value or None
+
+            p_text_spec = text_spec.value or None
+
+            # prepare SQL call
+            sql_types = [
+                'VARCHAR', 'INTEGER', 'INTEGER', 'DATE',
+                'VARCHAR', 'VARCHAR', 'VARCHAR', 'INTEGER',
+                'INTEGER', 'INTEGER', 'VARCHAR',
+                'VARCHAR', 'INTEGER', 'INTEGER',
+                'TEXT'
+            ]
+            casted = [
+                sql.SQL("CAST({} AS {})").format(sql.Placeholder(), sql.SQL(t))
+                for t in sql_types
+            ]
+            call_q = sql.SQL('CALL {proc}({phs})').format(
+                proc = sql.Identifier('sp_add_product'),
+                phs  = sql.SQL(', ').join(casted)
+            )
+            params = [
+                p_name,
+                p_category,
+                p_workshop,
+                p_begin,
+                p_type,
+                p_use_type,
+                p_vehicle_type,
+                p_cargo_cap,
+                p_pass_count,
+                p_eng_count,
+                p_armaments,
+                p_missile_type,
+                p_payload,
+                p_range,
+                p_text_spec
+            ]
+
+            max_retries = 5
+            for attempt in range(1, max_retries+1):
+                try:
+                    conn.isolation_level = 3  # REPEATABLE READ
+                    with conn.transaction():
+                        conn.execute(call_q, params)
+                    ui.notify(f"Product '{p_name}' created successfully")
+                    dialog.close()
+                    break
+                except OperationalError as e:
+                    if attempt == max_retries:
+                        ui.notify(f"Serialization failure after {max_retries} attempts: {e}", color='negative')
+                except Exception as e:
+                    ui.notify(f"Error calling sp_add_product: {e}", color='negative')
+                    break
+                finally:
+                    conn.isolation_level = None
+
+        ui.button('Create', on_click=on_submit).classes('q-btn-primary')
+
+    return dialog
