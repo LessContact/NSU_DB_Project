@@ -3,6 +3,23 @@ from db import db_manager
 import psycopg
 from src.config import DSN_ADMIN, DSN_HR
 
+def get_all_views(conn) -> list[str]:
+    """
+    Return a list of all views in the database.
+
+    If exclude_system_schemas is True, filters out pg_catalog and information_schema.
+    """
+    sql = """
+          SELECT table_schema, table_name
+          FROM information_schema.views
+          WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
+          ORDER BY table_schema, table_name; \
+          """
+    with conn.cursor() as cur:
+        cur.execute(sql)
+        return [f"{name}" for schema, name in cur.fetchall()]
+
+
 def get_user_tables(role: str):
     conn = None
     try:

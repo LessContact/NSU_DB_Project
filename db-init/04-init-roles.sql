@@ -17,6 +17,12 @@ GRANT SELECT, INSERT
         "employee_movements"
     TO HR;
 
+GRANT SELECT
+    ON TABLE
+        "sections",
+        "labs"
+    TO HR;
+
 
 GRANT SELECT, INSERT, UPDATE, DELETE
     ON TABLE

@@ -41,20 +41,21 @@ WITH base AS (
     )
 SELECT
     CASE    
-        WHEN wsh_id IS NULL AND section_id IS NULL AND category_id IS NULL
+        WHEN b.wsh_id IS NULL AND b.section_id IS NULL AND b.category_id IS NULL
             THEN 'enterprise_total'
-        WHEN wsh_id IS NULL AND section_id IS NULL
+        WHEN b.wsh_id IS NULL AND b.section_id IS NULL
             THEN 'enterprise_by_category'
-        WHEN section_id IS NULL
+        WHEN b.section_id IS NULL
             THEN 'workshop'
         ELSE 'section'
     END AS agg_level,
 
-    w.name AS workshop,
-    s.name AS section,
-    c.name AS category,
+    MIN(w.name)::VARCHAR AS workshop,
+    MIN(s.name)::VARCHAR AS section,
+    MIN(c.name)::VARCHAR AS category,
     COUNT(DISTINCT b.p_id) AS product_count,
-    ARRAY_AGG(DISTINCT b.product_name ORDER BY b.product_name) AS product_list
+    ARRAY_AGG(DISTINCT b.product_name ORDER BY b.product_name)::TEXT[] AS product_list
+
   
 FROM base b
 LEFT JOIN workshops w ON b.wsh_id = w.wsh_id
@@ -168,16 +169,15 @@ SELECT DISTINCT
     w.is_brigadier AS is_brigadier
 FROM workers w
 JOIN employees e ON w.w_id = e.w_id
-JOIN worker_types wt ON w.specialisation = wt.tp_id
+JOIN work_types wt ON w.specialisation = wt.t_id
 JOIN brigade b ON w.brigade_id = b.b_id
-
 /* infer which sections this brigade has worked in */
 JOIN (
     SELECT DISTINCT brigade_id, section_id
     FROM assembly
 ) AS ab ON ab.brigade_id = b.b_id
-JOIN sections       s   ON ab.section_id = s.s_id
-JOIN workshops      wsh ON s.workshop_id = wsh.wsh_id;
+JOIN sections s ON ab.section_id = s.s_id
+JOIN workshops wsh ON s.workshop_id = wsh.wsh_id;
 
 
 -- 7) Получить список мастеров указанного участка, цеха.
@@ -230,7 +230,7 @@ JOIN products p ON a.product_id = p.p_id
 JOIN brigade b ON a.brigade_id = b.b_id
 JOIN workers w ON w.brigade_id = b.b_id
 JOIN employees e ON e.w_id = w.w_id
-JOIN worker_types wt ON w.specialisation = wt.tp_id;
+JOIN work_types wt ON w.specialisation = wt.t_id;
 
 
 -- 10) Получить перечень испытательных лабораторий, участвующих в испытаниях некоторого конкретного изделия.
@@ -315,7 +315,7 @@ JOIN product_categories AS pc ON p.category = pc.c_id
 JOIN sections AS s ON a.section_id = s.s_id
 JOIN workshops AS w ON s.workshop_id = w.wsh_id
 
-WHERE a.end_date IS NULL OR a.end_date >= CURRENT_DATE
+WHERE a.end_date IS NULL
 
 GROUP BY ROLLUP (w.name, s.name, pc.name);
 

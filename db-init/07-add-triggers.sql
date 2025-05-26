@@ -137,7 +137,7 @@ BEGIN
     END IF;
     RETURN NEW;
 END;
-$$;
+$$ LANGUAGE plpgsql;
 
 CREATE TRIGGER master_insert_on_ete_create
 AFTER INSERT ON ete

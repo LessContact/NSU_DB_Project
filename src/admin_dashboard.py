@@ -8,7 +8,7 @@ from db import db_manager
 from generic_dialog_builders import build_generic_add_dialog, build_generic_delete_dialog, build_generic_get_dialog, \
     build_generic_update_dialog
 from src.update_dialog_builder import update_dialog_builders
-from ui_common import show_all, count_rows, custom_query, get_user_tables
+from ui_common import show_all, count_rows, custom_query, get_user_tables, get_all_views
 
 
 def build_dashboard(user, on_logout):
@@ -25,10 +25,21 @@ def build_dashboard(user, on_logout):
         with ui.row().classes('full-width full-height'):
             with ui.column().classes('w-1/4 h-full').style('max-width: 200px;'):
                 with ui.tabs().props('vertical').classes('full-width center') as tabs:
+                    ui.tab('summaries')
                     for lbl in labels:
                         ui.tab(lbl)
             with ui.column().style('flex: 1;'):
                 with ui.tab_panels(tabs, value=labels[0]).props('vertical').classes('full-width center') as panels:
+                    #create summary tab
+                    with ui.tab_panel('summaries'):
+                        with ui.row().classes('full-width q-gutter-sm'):
+                            for view in get_all_views(db_manager.conn):
+                                view_builder = get_dialog_builders.get(view, build_generic_get_dialog)
+                                view_dlg = view_builder(db_manager.conn, view, result_areas)
+                                ui.button(f'Filter from {view}', on_click=view_dlg.open)
+                                ui.separator()
+                                result_areas[view] = ui.table(columns=[], rows=[]).classes('full-width')
+
                     for lbl in labels:
                         with ui.tab_panel(lbl):
                             with ui.row().classes('full-width q-gutter-sm'):
