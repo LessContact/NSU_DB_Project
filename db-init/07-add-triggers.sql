@@ -106,11 +106,12 @@ AFTER INSERT ON employee_movements
 FOR EACH ROW
 EXECUTE FUNCTION fix_grade_change_employees_func();
 
+
 CREATE OR REPLACE FUNCTION section_products_insert_on_assembly_func()
 RETURNS TRIGGER AS $$
 BEGIN
     INSERT INTO sections_products (s_id, p_id)
-    SELECT NEW.section_id, NEW.product_id
+    SELECT NEW.s_id, NEW.p_id
     WHERE NOT EXISTS (
         SELECT 1 
         FROM sections_products 
@@ -125,3 +126,20 @@ CREATE TRIGGER section_products_insert_on_assembly
 AFTER INSERT ON assembly
 FOR EACH ROW
 EXECUTE FUNCTION section_products_insert_on_assembly_func();
+
+
+CREATE OR REPLACE FUNCTION master_insert_on_ete_create_func()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.is_master AND NEW.section IS NOT NULL THEN
+        INSERT INTO masters (w_id, s_id)
+        VALUES (NEW.w_id, NEW.s_id);
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER master_insert_on_ete_create
+AFTER INSERT ON ete
+FOR EACH ROW
+EXECUTE FUNCTION master_insert_on_ete_create_func();

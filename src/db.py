@@ -21,7 +21,7 @@ class DBManager:
         try:
             if self.conn:
                 self.conn.close()
-            self.conn = psycopg.connect(dsn)
+            self.conn = psycopg.connect(dsn,autocommit=True)
             ui.notify(f"Connected to database as {role}", color='positive')
             return True
         except OperationalError as e:
@@ -48,19 +48,16 @@ class DBManager:
             return [], []
         try:
             with self.conn.cursor() as cur:
-                cur.execute(query)
-                try:
-                    cols = [d[0] for d in cur.description]
-                    data = cur.fetchall()
-                    self.conn.commit()
-                    return cols, data
-                except psycopg.ProgrammingError as e:
-                    self.conn.rollback()
-                    ui.notify(f"DB error: {e}", color='negative')
-                    return [], []
+                with self.conn.transaction():
+                    cur.execute(query)
+                    try:
+                        cols = [d[0] for d in cur.description]
+                        data = cur.fetchall()
+                        return cols, data
+                    except psycopg.ProgrammingError as e:
+                        ui.notify(f"DB error: {e}", color='negative')
+                        return [], []
         except Exception as e:
-            if self.conn:
-                self.conn.rollback()
             ui.notify(f"DB error: {e}", color='negative')
             return [], []
 
