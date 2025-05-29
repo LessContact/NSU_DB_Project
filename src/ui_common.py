@@ -50,6 +50,30 @@ def get_user_tables(role: str):
             conn.close()
         return None
 
+
+def check_user_privileges(conn, table_name):
+    """
+    Проверяет привилегии текущего пользователя для таблицы.
+    Возвращает словарь с ключами 'INSERT', 'UPDATE', 'DELETE' и булевыми значениями.
+    """
+    privileges = {}
+    operations = ['INSERT', 'UPDATE', 'DELETE']
+
+    try:
+        with conn.cursor() as cur:
+            for operation in operations:
+                query = f"""
+                SELECT has_table_privilege(current_user, 'public.{table_name}', '{operation}')
+                """
+                cur.execute(query)
+                result = cur.fetchone()[0]
+                privileges[operation] = result
+        return privileges
+    except Exception as e:
+        ui.notify(f"Ошибка проверки привилегий: {str(e)}", color='negative')
+        return {op: False for op in operations}
+
+
 def display_result(entity, cols, data, areas):
     if not data:
         ui.notify('No data', color='warning')
