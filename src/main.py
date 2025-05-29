@@ -11,7 +11,7 @@ user = User()
 
 def shutdown():
     db_manager.disconnect()
-    ui.notify('Соединение с базой данных закрыто', color='info')
+    print('Соединение с базой данных закрыто')
 
 
 def disconnect():
@@ -37,14 +37,34 @@ def index_page():
 
 @ui.page('/login')
 def login_page():
-    def handle_login(role: str):
-        if user.change_role(role):
-            ui.notify(f'Вход выполнен как {role}', color='positive')
-            redirect_based_on_role()
+    def handle_login(username: str, password: str, role: str):
+        if authenticate_user(username, password, role):
+            if user.change_role(role):
+                ui.notify(f'Добро пожаловать, {username}!', color='positive')
+                redirect_based_on_role()
+            else:
+                ui.notify('Ошибка подключения к базе', color='negative')
         else:
-            ui.notify('Ошибка подключения к базе', color='negative')
+            ui.notify('Неверные учетные данные', color='negative')
 
     ui_login.build_login(handle_login)
+
+
+def authenticate_user(username: str, password: str, role: str) -> bool:
+    """
+    Things is should but won't do:
+    1. Hash passwords
+    2. Use a proper database
+    3. Implement proper security measures
+    """
+    valid_credentials = {
+        'admin': {'admin': 'admin', 'admin1': '1'},
+        'hr': {'hr': 'hr', 'hr1': '1'}
+    }
+
+    return (role in valid_credentials and
+            username in valid_credentials[role] and
+            valid_credentials[role][username] == password)
 
 
 @ui.page('/admin')
@@ -74,5 +94,5 @@ def hr_page():
 
 
 if __name__ in {'__main__', '__mp_main__'}:
-    ui.run(host='localhost', title='Система управления базой данных', favicon='💽', dark=None,
+    ui.run(host='localhost', title='Информационная система авиастроительного предприятия ', favicon='💽', dark=None,
            reload=False, reconnect_timeout=10.0, uvicorn_logging_level='warning')

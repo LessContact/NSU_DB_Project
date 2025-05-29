@@ -14,7 +14,7 @@ def build_dashboard(user, on_logout):
 
     with ui.column().classes('full-width') as dashboard_page:
         with ui.row().classes('full-width items-center q-pb-sm'):
-            ui.label('').classes('text-h6').bind_text_from(user, 'role', lambda x: 'Вы вошли как ' + x)
+            ui.label('Вы вошли как hr').classes('text-h6')
             ui.space().classes('grow')
             ui.button('Выйти', on_click=on_logout).classes('q-btn-negative')
 
