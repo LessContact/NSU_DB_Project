@@ -292,16 +292,11 @@ SELECT
     wt.name AS specialisation,
     w.is_brigadier
 FROM prod_brigade pb
-JOIN products p
-    ON p.p_id = pb.product_id
-JOIN brigade b
-    ON b.b_id = pb.brigade_id
-JOIN workers w
-    ON w.brigade_id = b.b_id
-JOIN employees e
-    ON e.w_id = w.w_id
-JOIN work_types wt
-    ON wt.t_id = w.specialisation
+JOIN products p ON p.p_id = pb.product_id
+JOIN brigade b ON b.b_id = pb.brigade_id
+JOIN workers w ON w.brigade_id = b.b_id
+JOIN employees e ON e.w_id = w.w_id
+JOIN work_types wt ON wt.t_id = w.specialisation
 
 
 -- 10) Получить перечень испытательных лабораторий, участвующих в испытаниях некоторого конкретного изделия.
