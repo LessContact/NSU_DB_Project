@@ -36,42 +36,63 @@ WITH base AS (
         a.section_id AS section_id,
         p.category AS category_id
     FROM products p
-    LEFT JOIN assembly a ON p.p_id = a.product_id
-    WHERE p.begin_date BETWEEN p_start_date AND p_end_date
-    )
+    JOIN assembly a
+      ON p.p_id = a.product_id
+    WHERE p.end_date BETWEEN p_start_date AND p_end_date
+)
 SELECT
-    CASE    
-        WHEN b.wsh_id IS NULL AND b.section_id IS NULL AND b.category_id IS NULL
+    CASE
+        WHEN GROUPING(w.wsh_id)=1 AND GROUPING(section_id)=1 AND GROUPING(category_id)=1
             THEN 'enterprise_total'
-        WHEN b.wsh_id IS NULL AND b.section_id IS NULL
+        WHEN GROUPING(w.wsh_id)=1 AND GROUPING(section_id)=1 AND GROUPING(category_id)=0
             THEN 'enterprise_by_category'
-        WHEN b.section_id IS NULL
-            THEN 'workshop'
-        ELSE 'section'
+        WHEN GROUPING(w.wsh_id)=0 AND GROUPING(section_id)=1 AND GROUPING(category_id)=1
+            THEN 'workshop_total'
+        WHEN GROUPING(w.wsh_id)=0 AND GROUPING(section_id)=1 AND GROUPING(category_id)=0
+            THEN 'workshop_by_category'
+        WHEN GROUPING(w.wsh_id)=0 AND GROUPING(section_id)=0 AND GROUPING(category_id)=1
+          THEN 'section_total'
+        ELSE 'section_by_category'
     END AS agg_level,
 
     MIN(w.name)::VARCHAR AS workshop,
     MIN(s.name)::VARCHAR AS section,
     MIN(c.name)::VARCHAR AS category,
-    COUNT(DISTINCT b.p_id) AS product_count,
-    ARRAY_AGG(DISTINCT b.product_name ORDER BY b.product_name)::TEXT[] AS product_list
 
-  
+    COUNT(DISTINCT b.p_id) AS product_count,
+    ARRAY_AGG(DISTINCT b.product_name ORDER BY b.product_name) AS product_list
+
 FROM base b
 LEFT JOIN workshops w ON b.wsh_id = w.wsh_id
 LEFT JOIN sections s ON b.section_id = s.s_id
 LEFT JOIN product_categories c ON b.category_id = c.c_id
 
-GROUP BY ROLLUP (b.wsh_id, b.section_id, b.category_id)
+GROUP BY
+    GROUPING SETS (
+       -- section by category
+        (w.wsh_id, section_id, category_id),
+        -- section total
+        (w.wsh_id, section_id),
+        -- workshop by category
+        (w.wsh_id, category_id),
+        -- workshop total
+        (w.wsh_id),
+        -- enterprise by category
+        (category_id),
+        -- enterprise total
+        ()
+    )
+
 ORDER BY
-  -- enterprise total first, then enterprise by category, then workshop, then section:
     CASE
-        WHEN b.wsh_id IS NULL AND b.section_id IS NULL AND b.category_id IS NULL THEN 1
-        WHEN b.wsh_id IS NULL AND b.section_id IS NULL THEN 2
-        WHEN b.section_id IS NULL THEN 3
-        ELSE 4
+        WHEN GROUPING(w.wsh_id)=1 AND GROUPING(section_id)=1 AND GROUPING(category_id)=1 THEN 1  -- enterprise_total
+        WHEN GROUPING(w.wsh_id)=1 AND GROUPING(section_id)=1 AND GROUPING(category_id)=0 THEN 2  -- enterprise_by_category
+        WHEN GROUPING(w.wsh_id)=0 AND GROUPING(section_id)=1 AND GROUPING(category_id)=1 THEN 3  -- workshop_total
+        WHEN GROUPING(w.wsh_id)=0 AND GROUPING(section_id)=1 AND GROUPING(category_id)=0 THEN 4  -- workshop_by_category
+        WHEN GROUPING(w.wsh_id)=0 AND GROUPING(section_id)=0 AND GROUPING(category_id)=1 THEN 5  -- section_total
+        ELSE 6                                                                             -- section_by_category
     END,
-    b.wsh_id, b.section_id, b.category_id;
+    w.wsh_id, section_id, category_id;
 END;
 $$;
 
@@ -108,30 +129,68 @@ LEFT JOIN workers w ON e.w_id = w.w_id;
 
 -- 4) Получить число и перечень участков указанного цеха, предприятия в целом и их начальников.
 CREATE OR REPLACE VIEW v_sections_and_chiefs_summary AS
+WITH
+    -- 1) sections per workshop
+    section_aggr AS (
+        SELECT
+            workshop_id,
+            COUNT(*)                            AS section_count,
+            ARRAY_AGG(name ORDER BY name)       AS section_list
+        FROM sections
+        GROUP BY workshop_id
+    ),
+
+    -- 2) workshop-chiefs per workshop
+    chief_aggr AS (
+        SELECT
+            sec.workshop_id,
+            ARRAY_AGG(DISTINCT e.full_name
+                      ORDER BY e.full_name)    AS chief_list
+        FROM ete t
+        JOIN sections sec
+            ON t.section = sec.s_id
+           AND t.is_wsh_super = TRUE
+        JOIN employees e
+            ON t.w_id = e.w_id
+        GROUP BY sec.workshop_id
+    ),
+
+    -- 3) all workshops + one enterprise row
+    all_ws AS (
+        SELECT
+            wsh_id,
+            name
+        FROM workshops
+
+        UNION ALL
+
+        -- enterprise (NULL workshop_id) row
+        SELECT
+            NULL::INT    AS wsh_id,
+            'Enterprise' AS name
+    )
+
 SELECT
-    -- NULL workshop_id -> enterprise‐wide aggregate
     w.wsh_id,
-    w.name  AS workshop_name,
+    w.name             AS workshop_name,
 
-    -- count + list of sections in this workshop (or in the whole plant when wsh_id IS NULL)
-    COUNT(DISTINCT s.s_id) AS section_count,
-    ARRAY_AGG(DISTINCT s.name ORDER BY s.name) AS section_list,
+    COALESCE(sa.section_count, 0)            AS section_count,
+    COALESCE(sa.section_list, '{}'::TEXT[])  AS section_list,
 
-    -- list of chiefs marked is_wsh_super for this workshop (or all chiefs for enterprise)
-    ARRAY_AGG(DISTINCT e.full_name ORDER BY e.full_name) AS chief_list
-FROM workshops w
-LEFT JOIN sections s ON s.workshop_id = w.wsh_id
--- join to find the one (or more) ETEs flagged as workshop‐super for this workshop */
-LEFT JOIN sections sec2 ON sec2.workshop_id = w.wsh_id
-LEFT JOIN ete t ON t.section = sec2.s_id
-                AND t.is_wsh_super = TRUE
-LEFT JOIN employees e ON e.w_id = t.w_id
+    COALESCE(ca.chief_list, '{}'::TEXT[])    AS chief_list
 
-GROUP BY ROLLUP (w.wsh_id, w.name)
+FROM all_ws w
+
+LEFT JOIN section_aggr sa
+    ON sa.workshop_id = w.wsh_id
+
+LEFT JOIN chief_aggr ca
+    ON ca.workshop_id = w.wsh_id
 
 ORDER BY
-    CASE WHEN wsh_id IS NULL THEN 0 ELSE 1 END,
-    wsh_id;
+    -- Enterprise first (wsh_id NULL), then by wsh_id
+    CASE WHEN w.wsh_id IS NULL THEN 0 ELSE 1 END,
+    w.wsh_id;
 
 
 -- 5) Получить перечень работ, которые проходит указанное изделие.
@@ -216,21 +275,33 @@ JOIN workshops w ON s.workshop_id = w.wsh_id;
 
 -- 9) Получить состав бригад, участвующих в сборке указанного изделия.
 CREATE OR REPLACE VIEW v_product_brigade_composition AS
-SELECT DISTINCT
-    p.p_id AS product_id,
+WITH prod_brigade AS (
+    -- Deduplicate so each (product, brigade) appears only once
+    SELECT DISTINCT
+        product_id,
+        brigade_id
+    FROM assembly
+)
+SELECT
+    pb.product_id,
     p.name AS product_name,
-    b.b_id AS brigade_id,
+    pb.brigade_id,
     b.name AS brigade_name,
     w.w_id AS worker_id,
     e.full_name AS worker_name,
     wt.name AS specialisation,
-    w.is_brigadier AS is_brigadier
-FROM assembly a
-JOIN products p ON a.product_id = p.p_id
-JOIN brigade b ON a.brigade_id = b.b_id
-JOIN workers w ON w.brigade_id = b.b_id
-JOIN employees e ON e.w_id = w.w_id
-JOIN work_types wt ON w.specialisation = wt.t_id;
+    w.is_brigadier
+FROM prod_brigade pb
+JOIN products p
+    ON p.p_id = pb.product_id
+JOIN brigade b
+    ON b.b_id = pb.brigade_id
+JOIN workers w
+    ON w.brigade_id = b.b_id
+JOIN employees e
+    ON e.w_id = w.w_id
+JOIN work_types wt
+    ON wt.t_id = w.specialisation
 
 
 -- 10) Получить перечень испытательных лабораторий, участвующих в испытаниях некоторого конкретного изделия.
@@ -315,7 +386,7 @@ JOIN product_categories AS pc ON p.category = pc.c_id
 JOIN sections AS s ON a.section_id = s.s_id
 JOIN workshops AS w ON s.workshop_id = w.wsh_id
 
-WHERE a.end_date IS NULL
+WHERE p.end_date IS NULL
 
 GROUP BY ROLLUP (w.name, s.name, pc.name);
 

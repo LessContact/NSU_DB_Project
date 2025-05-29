@@ -110,7 +110,7 @@ CREATE OR REPLACE FUNCTION section_products_insert_on_assembly_func()
 RETURNS TRIGGER AS $$
 BEGIN
     INSERT INTO sections_products (s_id, p_id)
-    SELECT NEW.s_id, NEW.p_id
+    SELECT NEW.section_id, NEW.product_id
     WHERE NOT EXISTS (
         SELECT 1 
         FROM sections_products 
