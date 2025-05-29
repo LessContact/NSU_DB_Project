@@ -1,5 +1,5 @@
 \connect aerospace_factory
-
+-- 1)
 CREATE OR REPLACE FUNCTION log_employee_grade_change_func()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -16,7 +16,7 @@ AFTER UPDATE OF grade_id ON employees
 FOR EACH ROW
 EXECUTE FUNCTION log_employee_grade_change_func();
 
-
+-- 2)
 CREATE OR REPLACE FUNCTION validate_master_employee_func()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -38,7 +38,7 @@ BEFORE INSERT OR UPDATE ON masters
 FOR EACH ROW
 EXECUTE FUNCTION validate_master_employee_func();
 
-
+-- 3)
 CREATE OR REPLACE FUNCTION prevent_delete_active_master_func()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -57,7 +57,7 @@ BEFORE DELETE ON employees
 FOR EACH ROW
 EXECUTE FUNCTION prevent_delete_active_master_func();
 
-
+-- 4)
 CREATE OR REPLACE FUNCTION check_worker_brigadier_func()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -88,7 +88,7 @@ BEFORE INSERT OR UPDATE ON workers
 FOR EACH ROW
 EXECUTE FUNCTION check_worker_brigadier_func();
 
-
+-- 5)
 CREATE OR REPLACE FUNCTION fix_grade_change_employees_func()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -100,13 +100,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-
 CREATE TRIGGER fix_grade_change_employees
 AFTER INSERT ON employee_movements
 FOR EACH ROW
 EXECUTE FUNCTION fix_grade_change_employees_func();
 
-
+-- 6)
 CREATE OR REPLACE FUNCTION section_products_insert_on_assembly_func()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -127,7 +126,7 @@ AFTER INSERT ON assembly
 FOR EACH ROW
 EXECUTE FUNCTION section_products_insert_on_assembly_func();
 
-
+-- 7)
 CREATE OR REPLACE FUNCTION master_insert_on_ete_create_func()
 RETURNS TRIGGER AS $$
 BEGIN
