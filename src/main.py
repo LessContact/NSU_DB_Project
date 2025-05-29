@@ -1,12 +1,25 @@
-from nicegui import ui
+from nicegui import ui, app
 from auth import User
 import ui_login
 import admin_dashboard
 import hr_dashboard
-from fastapi import Request
+from db import db_manager
+
 
 user = User()
 
+
+def shutdown():
+    db_manager.disconnect()
+    ui.notify('Соединение с базой данных закрыто', color='info')
+
+
+def disconnect():
+    user.role = ''
+
+
+app.on_shutdown(shutdown)
+app.on_disconnect(disconnect)
 
 def redirect_based_on_role():
     if not user.get_role():
