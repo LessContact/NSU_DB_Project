@@ -17,7 +17,7 @@ def get_table_columns(conn, table_name, schema='public'):
         return cur.fetchall()
 
 
-def submit_form(conn, table_name, input_fields):
+def submit_add(conn, table_name, input_fields):
     columns = []
     values = []
     identifiers = []
@@ -63,7 +63,7 @@ def build_generic_add_dialog(conn, table_name):
                 input_fields[col_name] = create_date_input_field(label)
             else:
                 input_fields[col_name] = ui.input(label=label)
-        ui.button('Submit', on_click=lambda: submit_form(conn, table_name, input_fields)).classes('q-btn-primary')
+        ui.button('Submit', on_click=lambda: submit_add(conn, table_name, input_fields)).classes('q-btn-primary')
     return dialog
 
 

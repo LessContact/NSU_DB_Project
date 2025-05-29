@@ -6,8 +6,6 @@ from src.config import DSN_ADMIN, DSN_HR
 def get_all_views(conn) -> list[str]:
     """
     Return a list of all views in the database.
-
-    If exclude_system_schemas is True, filters out pg_catalog and information_schema.
     """
     sql = """
           SELECT table_schema, table_name
