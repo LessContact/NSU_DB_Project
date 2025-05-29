@@ -20,7 +20,7 @@ EXECUTE FUNCTION log_employee_grade_change_func();
 CREATE OR REPLACE FUNCTION validate_master_employee_func()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Check if the employee exists in ete table and is marked as master
+    -- Check if the employee doesnt exist in ete table and is marked as master
     IF NOT EXISTS (
         SELECT 1 
         FROM ete
