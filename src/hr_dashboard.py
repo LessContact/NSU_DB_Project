@@ -10,7 +10,7 @@ from ui_common import show_all, count_rows, custom_query, get_user_tables, check
 
 
 def build_dashboard(user, on_logout):
-    entities = get_user_tables(user.role)
+    entities = get_user_tables(db_manager.conn)
     result_areas = {}
 
     with ui.column().classes('full-width') as dashboard_page:

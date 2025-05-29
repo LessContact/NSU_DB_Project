@@ -20,17 +20,8 @@ def get_all_views(conn) -> list[str]:
         return [f"{name}" for schema, name in cur.fetchall()]
 
 
-def get_user_tables(role: str):
-    conn = None
+def get_user_tables(conn):
     try:
-        if role == 'hr':
-            conn = psycopg.connect(DSN_HR)
-        elif role == 'admin':
-            conn = psycopg.connect(DSN_ADMIN)
-        else:
-            ui.notify("Invalid role specified", color='negative')
-            return None
-
         """Return all public tables the current user can SELECT."""
         query = """
                 SELECT table_name
@@ -42,12 +33,9 @@ def get_user_tables(role: str):
                 """
         with conn.cursor() as cur:
             cur.execute(query)
-            conn.close()
             return [row[0] for row in cur.fetchall()]
     except Exception as e:
         ui.notify(f"Failed to populate entities", color='negative')
-        if conn:
-            conn.close()
         return None
 
 
