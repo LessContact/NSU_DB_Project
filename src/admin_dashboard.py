@@ -1,13 +1,16 @@
+from itertools import chain
 from nicegui import ui
 
 from add_dialog_builder import add_dialog_builders
 from delete_dialog_builder import delete_dialog_builders
 from get_dialog_builder import get_dialog_builders
+from src.ui_common import get_all_functions
+from summary_dialog_builder import summary_dialog_builders
+from update_dialog_builder import update_dialog_builders
 from update_dialog_builder import update_dialog_builders
 from db import db_manager
 from generic_dialog_builders import build_generic_add_dialog, build_generic_delete_dialog, build_generic_get_dialog, \
-    build_generic_update_dialog
-from src.update_dialog_builder import update_dialog_builders
+    build_generic_update_dialog, build_generic_query_view
 from ui_common import show_all, count_rows, custom_query, get_user_tables, get_all_views, check_user_privileges
 
 
@@ -30,11 +33,11 @@ def build_dashboard(user, on_logout):
                         ui.tab(lbl)
             with ui.column().style('flex: 1;'):
                 with ui.tab_panels(tabs, value=labels[0]).props('vertical').classes('full-width center') as panels:
-                    #create summary tab
+                    # create summaries tab
                     with ui.tab_panel('summaries'):
                         with ui.row().classes('full-width q-gutter-sm'):
-                            for view in get_all_views(db_manager.conn):
-                                view_builder = get_dialog_builders.get(view, build_generic_get_dialog)
+                            for view in chain(get_all_functions(db_manager.conn), get_all_views(db_manager.conn)):
+                                view_builder = summary_dialog_builders.get(view, build_generic_query_view)
                                 view_dlg = view_builder(db_manager.conn, view, result_areas)
                                 ui.button(f'Filter from {view}', on_click=view_dlg.open)
                                 ui.separator()

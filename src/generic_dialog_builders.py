@@ -316,3 +316,10 @@ def build_generic_update_dialog(conn, table_name):
                       ).classes('q-btn-primary')
 
     return dialog
+
+
+def build_generic_query_view(conn, table_name, result_areas):
+    with ui.dialog() as dialog, ui.card().classes('w-2/3'):
+        ui.label('''No dialog specified for this view.
+                 Dialog windows for views should be specified explicetely.''').classes('text-h6 text-negative text-center')
+    return dialog
