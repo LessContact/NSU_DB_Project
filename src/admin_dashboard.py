@@ -25,13 +25,13 @@ def build_dashboard(user, on_logout):
             ui.button('Выйти', on_click=on_logout).classes('q-btn-negative')
 
         labels = entities
-        with ui.row().classes('full-width full-height'):
+        with ui.row().classes('full-width full-height no-wrap'):
             with ui.column().classes('w-1/4 h-full').style('max-width: 200px;'):
                 with ui.tabs().props('vertical').classes('full-width center') as tabs:
                     ui.tab('summaries')
                     for lbl in labels:
                         ui.tab(lbl)
-            with ui.column().style('flex: 1;'):
+            with ui.column().style('flex: 1; min-width: 0;'):
                 with ui.tab_panels(tabs, value=labels[0]).props('vertical').classes('full-width center') as panels:
                     # create summaries tab
                     with ui.tab_panel('summaries'):
@@ -41,7 +41,8 @@ def build_dashboard(user, on_logout):
                                 view_dlg = view_builder(db_manager.conn, view, result_areas)
                                 ui.button(f'Filter from {view}', on_click=view_dlg.open)
                                 ui.separator()
-                                result_areas[view] = ui.table(columns=[], rows=[]).classes('full-width')
+                                with ui.column().classes('full-width').style('overflow-x: scroll;'):
+                                    result_areas[view] = ui.table(columns=[], rows=[]).classes('full-width')
 
                     for lbl in labels:
                         with ui.tab_panel(lbl):
