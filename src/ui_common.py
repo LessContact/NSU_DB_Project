@@ -1,7 +1,5 @@
 from nicegui import ui
 from db import db_manager
-import psycopg
-from src.config import DSN_ADMIN, DSN_HR
 
 def get_all_views(conn) -> list[str]:
     """
@@ -11,8 +9,31 @@ def get_all_views(conn) -> list[str]:
           SELECT table_schema, table_name
           FROM information_schema.views
           WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
-          ORDER BY table_schema, table_name; \
+          ORDER BY table_schema, table_name;
           """
+    with conn.cursor() as cur:
+        cur.execute(sql)
+        return [f"{name}" for schema, name in cur.fetchall()]
+
+
+def get_all_functions(conn) -> list[str]:
+    """
+    Return a list of all functions in the database.
+    """
+    sql = """
+        SELECT
+        n.nspname AS schema,
+        p.proname AS function_name
+        FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE
+        n.nspname NOT IN ('pg_catalog', 'information_schema')
+        -- Keep only normal functions
+        AND p.prokind = 'f'
+        -- Exclude trigger functions
+        AND pg_catalog.pg_get_function_result(p.oid) != 'trigger'
+        ORDER BY function_name;
+    """
     with conn.cursor() as cur:
         cur.execute(sql)
         return [f"{name}" for schema, name in cur.fetchall()]
@@ -65,19 +86,38 @@ def display_result(entity, cols, data, areas):
         ui.notify('No data', color='warning')
         return
 
-    cols_def = [{'name': c, 'label': c, 'field': c} for c in cols]
-    rows = [dict(zip(cols, row)) for row in data]
+    cols_def = [{'name': c, 'label': c.replace('_', ' ').title(), 'field': c} for c in cols]
 
-    areas[entity].columns = cols_def
-    areas[entity].rows = rows
+    prepared_rows = []
+    for row_tuple in data:
+        row_dict = {}
+        for i, col_name in enumerate(cols):
+            cell_value = row_tuple[i]
+            if isinstance(cell_value, list):
+                row_dict[col_name] = ', '.join(map(str, cell_value))
+            else:
+                row_dict[col_name] = cell_value
+        prepared_rows.append(row_dict)
+
+    target_display_element = areas.get(entity)
+
+    if target_display_element:
+        target_display_element.columns = cols_def
+        target_display_element.rows = prepared_rows
+        target_display_element.update()
+    else:
+        ui.notify(f"Error: UI element for '{entity}' not found in result_areas.", color='negative')
+
 
 def show_all(entity, areas):
     cols, data = db_manager.execute_query(f"SELECT * FROM {entity} LIMIT 100;")
     display_result(entity, cols, data, areas)
 
+
 def count_rows(entity, areas):
     cols, data = db_manager.execute_query(f"SELECT COUNT(*) AS count FROM {entity};")
     display_result(entity, cols, data, areas)
+
 
 def custom_query(entity, query_input, areas):
     sql = query_input.value.strip()
