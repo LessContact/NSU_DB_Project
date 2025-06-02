@@ -64,22 +64,22 @@ FILTER_CONFIG = {
     'v_lab_tested_products': {
         'lab_id': ('labs', 'name', 'l_id'),
         'category_id': ('product_categories', 'name', 'c_id'),
-        'start_date': 'date',
-        'end_date': 'date',
+        'start_date': 'date_range_start:test_date',
+        'end_date': 'date_range_end:test_date',
     },
     'v_testers_activity': {
         'lab_id': ('labs', 'name', 'l_id'),
         'tester_w_id': ('employees', 'full_name', 'w_id'),
         'category_id': ('product_categories', 'name', 'c_id'),
-        'start_date': 'date',
-        'end_date': 'date',
+        'start_date': 'date_range_start:test_date',
+        'end_date': 'date_range_end:test_date',
     },
     'v_equipment_usage': {
         'lab_id': ('labs', 'name', 'l_id'),
         'equipment_id': ('equipment', 'name', 'e_id'),
         'category_id': ('product_categories', 'name', 'c_id'),
-        'start_date': 'date',
-        'end_date': 'date',
+        'start_date': 'date_range_start:test_date',
+        'end_date': 'date_range_end:test_date',
     },
     'v_ongoing_product_counts': {
         'workshop_name': ('workshops', 'name', 'name'),
